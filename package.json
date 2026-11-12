@@ -1,0 +1,72 @@
+{
+  "name": "@9in-io/nextjs",
+  "version": "0.1.0",
+  "description": "Official 9in SDK for Next.js (App Router): sign-in routes, encrypted session cookies, auth() in Server Components, token refresh and route protection in middleware. Runs on Node and Edge.",
+  "license": "MIT",
+  "homepage": "https://9in.io/docs/server-apps/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/9in-io/nextjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/9in-io/nextjs/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@9in/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "@9in/source": "./src/client.tsx",
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "nextjs",
+    "next",
+    "oauth",
+    "oidc",
+    "openid-connect",
+    "authentication",
+    "session",
+    "9in"
+  ],
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@9in-io/sdk": "^0.3.0"
+  },
+  "peerDependencies": {
+    "next": ">=14.2",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "next": "^16.4.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
