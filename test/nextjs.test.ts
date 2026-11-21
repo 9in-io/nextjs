@@ -88,12 +88,12 @@ function store(cookies: Map<string, string>, res: Response) {
 const header = (cookies: Map<string, string>) => [...cookies].map(([k, v]) => `${k}=${v}`).join("; ");
 const get = (path: string, cookies = new Map<string, string>(), headers: Record<string, string> = {}) => new Request(`${APP}${path}`, { headers: { cookie: header(cookies), ...headers } });
 
-async function signIn(t: Awaited<ReturnType<typeof tenant>>, nine: ReturnType<typeof createNine>, returnTo = "/dashboard") {
+async function signIn(t: Awaited<ReturnType<typeof tenant>>, nine: ReturnType<typeof createNine>, returnTo = "/dashboard", base = "/nine") {
   const cookies = new Map<string, string>();
-  const login = await nine.handlers.GET(get(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`));
+  const login = await nine.handlers.GET(get(`${base}/login?return_to=${encodeURIComponent(returnTo)}`));
   store(cookies, login);
   const params = t.authorize(login.headers.get("location")!);
-  const callback = await nine.handlers.GET(get(`/auth/callback?code=code-1&state=${params.get("state")}&iss=${encodeURIComponent(t.issuer)}`, cookies));
+  const callback = await nine.handlers.GET(get(`${base}/callback?code=code-1&state=${params.get("state")}&iss=${encodeURIComponent(t.issuer)}`, cookies));
   store(cookies, callback);
   return { cookies, login, callback, params };
 }
@@ -120,10 +120,10 @@ describe("routes", () => {
 
     expect(login.status).toBe(302);
     expect(params.get("client_id")).toBe("app_1");
-    expect(params.get("redirect_uri")).toBe(`${APP}/auth/callback`);
+    expect(params.get("redirect_uri")).toBe(`${APP}/nine/callback`);
     expect(params.get("code_challenge_method")).toBe("S256");
     const tx = setCookies(login).find((c) => c.startsWith("nine_session_tx_"))!;
-    expect(tx).toMatch(/Path=\/auth; HttpOnly; SameSite=Lax; Max-Age=900; Secure/);
+    expect(tx).toMatch(/Path=\/nine; HttpOnly; SameSite=Lax; Max-Age=900; Secure/);
     expect(decodeURIComponent(tx)).not.toMatch(/verifier|nonce|dashboard/); // encrypted
 
     expect(callback.status).toBe(302);
@@ -132,7 +132,7 @@ describe("routes", () => {
     expect(setCookies(callback).find((c) => c.startsWith("nine_session="))).toMatch(/Path=\/; HttpOnly; SameSite=Lax; Max-Age=2592000; Secure/);
     expect([...cookies.keys()]).toEqual(["nine_session"]);
 
-    const session = await nine.handlers.GET(get("/auth/session", cookies));
+    const session = await nine.handlers.GET(get("/nine/session", cookies));
     expect(session.headers.get("cache-control")).toBe("no-store");
     const body = (await session.json()) as { user: Record<string, unknown> };
     expect(body.user).toMatchObject({ sub: "usr_1", email: "jane@acme.test", name: "Jane", amr: ["pwd"] });
@@ -143,7 +143,7 @@ describe("routes", () => {
   it("opens the registration page and passes sign-in options", async () => {
     const t = await tenant();
     const nine = setup(t);
-    const res = await nine.handlers.GET(get("/auth/signup?locale=de&login_hint=jane%40acme.test&prompt=bogus"));
+    const res = await nine.handlers.GET(get("/nine/signup?locale=de&login_hint=jane%40acme.test&prompt=bogus"));
     const params = new URL(res.headers.get("location")!).searchParams;
     expect(params.get("prompt")).toBe("create");
     expect(params.get("ui_locales")).toBe("de");
@@ -157,26 +157,26 @@ describe("routes", () => {
       const { callback } = await signIn(t, nine, returnTo);
       expect(callback.headers.get("location")).toBe(`${APP}/`);
     }
-    expect((await nine.handlers.GET(get("/auth/nope"))).status).toBe(404);
-    expect((await nine.handlers.POST(new Request(`${APP}/auth/login`, { method: "POST" }))).status).toBe(405);
+    expect((await nine.handlers.GET(get("/nine/nope"))).status).toBe(404);
+    expect((await nine.handlers.POST(new Request(`${APP}/nine/login`, { method: "POST" }))).status).toBe(405);
   });
 
   it("fails the callback without the transaction, with a wrong state, or when the user cancels", async () => {
     const t = await tenant();
     const nine = setup(t);
-    const login = await nine.handlers.GET(get("/auth/login"));
+    const login = await nine.handlers.GET(get("/nine/login"));
     const state = t.authorize(login.headers.get("location")!).get("state")!;
-    const noCookie = await nine.handlers.GET(get(`/auth/callback?code=code-1&state=${state}`));
+    const noCookie = await nine.handlers.GET(get(`/nine/callback?code=code-1&state=${state}`));
     expect(noCookie.status).toBe(400);
     expect(await noCookie.text()).toContain("invalid_state");
     const cookies = store(new Map(), login);
-    const cancelled = await nine.handlers.GET(get(`/auth/callback?error=access_denied&state=${state}`, cookies));
+    const cancelled = await nine.handlers.GET(get(`/nine/callback?error=access_denied&state=${state}`, cookies));
     expect(cancelled.status).toBe(400);
     expect(cancelled.headers.get("content-type")).toContain("text/plain");
     expect(setCookies(cancelled).some((c) => c.includes("Max-Age=0"))).toBe(true);
 
     const custom = setup(t, { onError: (error) => Response.redirect(`${APP}/sign-in-failed?error=${error.code}`, 302) });
-    const res = await custom.handlers.GET(get(`/auth/callback?error=access_denied&state=${state}`, cookies));
+    const res = await custom.handlers.GET(get(`/nine/callback?error=access_denied&state=${state}`, cookies));
     expect(res.headers.get("location")).toBe(`${APP}/sign-in-failed?error=access_denied`);
     expect(setCookies(res).some((c) => c.startsWith("nine_session_tx_"))).toBe(true);
   });
@@ -205,18 +205,18 @@ describe("routes", () => {
     for (const value of cookies.values()) expect(value.length).toBeLessThanOrEqual(CHUNK_SIZE);
     expect((await nine.auth(get("/", cookies)))?.user.bio).toHaveLength(CHUNK_SIZE * 1.5);
     // Signing out removes every chunk.
-    expect(store(cookies, await nine.handlers.GET(get("/auth/logout?local=1", cookies))).size).toBe(0);
+    expect(store(cookies, await nine.handlers.GET(get("/nine/logout?local=1", cookies))).size).toBe(0);
   });
 
   it("signs out: clears the cookie, revokes the refresh token, ends the 9in session", async () => {
     const t = await tenant();
     const nine = setup(t);
     const { cookies } = await signIn(t, nine);
-    const prefetch = await nine.handlers.GET(get("/auth/logout", cookies, { "next-router-prefetch": "1" }));
+    const prefetch = await nine.handlers.GET(get("/nine/logout", cookies, { "next-router-prefetch": "1" }));
     expect(prefetch.status).toBe(204);
     expect(setCookies(prefetch)).toEqual([]);
 
-    const res = await nine.handlers.GET(get("/auth/logout?returnTo=/bye", cookies));
+    const res = await nine.handlers.GET(get("/nine/logout?return_to=/bye", cookies));
     const location = new URL(res.headers.get("location")!);
     expect(location.pathname.endsWith("/oauth/logout")).toBe(true);
     expect(location.searchParams.get("client_id")).toBe("app_1");
@@ -225,15 +225,34 @@ describe("routes", () => {
     expect(store(cookies, res).size).toBe(0);
 
     const { cookies: again } = await signIn(t, nine);
-    const local = await nine.handlers.POST(new Request(`${APP}/auth/logout`, { method: "POST", headers: { cookie: header(again), "content-type": "application/x-www-form-urlencoded" }, body: "local=1" }));
+    const local = await nine.handlers.POST(new Request(`${APP}/nine/logout`, { method: "POST", headers: { cookie: header(again), "content-type": "application/x-www-form-urlencoded" }, body: "local=1" }));
     expect(local.status).toBe(303);
     expect(local.headers.get("location")).toBe(`${APP}/`);
+  });
+
+  it("still reads returnTo, and serves the routes under another basePath", async () => {
+    const t = await tenant();
+    const nine = setup(t);
+    const cookies = new Map<string, string>();
+    const login = await nine.handlers.GET(get("/nine/login?returnTo=%2Fsettings"));
+    store(cookies, login);
+    const state = t.authorize(login.headers.get("location")!).get("state");
+    const callback = await nine.handlers.GET(get(`/nine/callback?code=code-1&state=${state}&iss=${encodeURIComponent(t.issuer)}`, cookies));
+    expect(callback.headers.get("location")).toBe(`${APP}/settings`);
+    const bye = await nine.handlers.GET(get("/nine/logout?local=1&returnTo=/bye", store(cookies, callback)));
+    expect(bye.headers.get("location")).toBe(`${APP}/bye`);
+
+    const legacy = setup(t, { basePath: "/auth" });
+    const { params, callback: done } = await signIn(t, legacy, "/dashboard", "/auth");
+    expect(params.get("redirect_uri")).toBe(`${APP}/auth/callback`);
+    expect(done.headers.get("location")).toBe(`${APP}/dashboard`);
+    expect((await legacy.handlers.GET(get("/nine/login"))).status).toBe(404);
   });
 
   it("needs a strong secret", async () => {
     const t = await tenant();
     const nine = setup(t, { secret: "short" });
-    await expect(nine.handlers.GET(get("/auth/login"))).rejects.toThrow(/at least 32 characters/);
+    await expect(nine.handlers.GET(get("/nine/login"))).rejects.toThrow(/at least 32 characters/);
   });
 });
 
@@ -329,11 +348,11 @@ describe("middleware", () => {
     const middleware = nine.middleware({ protect: ["/dashboard", /^\/api\/private/] });
     const page = await middleware(get("/dashboard/team?tab=2", new Map(), { accept: "text/html" }));
     expect(page.status).toBe(307);
-    expect(page.headers.get("location")).toBe(`${APP}/auth/login?returnTo=${encodeURIComponent("/dashboard/team?tab=2")}`);
+    expect(page.headers.get("location")).toBe(`${APP}/nine/login?return_to=${encodeURIComponent("/dashboard/team?tab=2")}`);
     const api = await middleware(get("/api/private/x", new Map(), { accept: "application/json" }));
     expect(api.status).toBe(401);
     expect((await middleware(get("/dashboardish", new Map(), { accept: "text/html" }))).headers.get("x-middleware-next")).toBe("1");
-    expect((await middleware(get("/auth/login", new Map(), { accept: "text/html" }))).headers.get("x-middleware-next")).toBe("1");
+    expect((await middleware(get("/nine/login", new Map(), { accept: "text/html" }))).headers.get("x-middleware-next")).toBe("1");
 
     const { cookies } = await signIn(t, nine);
     expect((await middleware(get("/dashboard", cookies, { accept: "text/html" }))).headers.get("x-middleware-next")).toBe("1");

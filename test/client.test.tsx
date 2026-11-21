@@ -45,10 +45,10 @@ describe("client", () => {
     signIn({ returnTo: "/x", basePath: "/api/auth", prompt: "login" });
     signOut({ local: true });
     expect(assign.mock.calls.map(([url]) => url)).toEqual([
-      "/auth/login?returnTo=%2Fpricing%3Fplan%3Dpro",
-      "/auth/signup?returnTo=%2Fpricing%3Fplan%3Dpro&locale=de",
-      "/api/auth/login?returnTo=%2Fx&prompt=login",
-      "/auth/logout?local=1",
+      "/nine/login?return_to=%2Fpricing%3Fplan%3Dpro",
+      "/nine/signup?return_to=%2Fpricing%3Fplan%3Dpro&locale=de",
+      "/api/auth/login?return_to=%2Fx&prompt=login",
+      "/nine/logout?local=1",
     ]);
   });
 

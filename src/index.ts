@@ -12,7 +12,7 @@ export type { Session, User } from "./types.js";
  *   import { createNine } from "@9in-io/nextjs";
  *   export const nine = createNine(); // reads NINE_ISSUER, NINE_CLIENT_ID, NINE_CLIENT_SECRET, NINE_SECRET, NINE_BASE_URL
  *
- * then mount the routes in `app/auth/[...nine]/route.ts` (`export const { GET, POST } = nine.handlers;`),
+ * then mount the routes in `app/nine/[...nine]/route.ts` (`export const { GET, POST } = nine.handlers;`),
  * add `middleware.ts` (`export default nine.middleware({ protect: ["/dashboard"] });`) and call
  * `await nine.auth()` wherever you need the user.
  */
@@ -34,7 +34,7 @@ export interface NineConfig {
    * Default: NINE_BASE_URL, else the URL of each request.
    */
   baseUrl?: string;
-  /** Where the routes are mounted. Default "/auth": /auth/login, /auth/signup, /auth/callback, /auth/logout, /auth/session. */
+  /** Where the routes are mounted. Default "/nine": /nine/login, /nine/signup, /nine/callback, /nine/logout, /nine/session. */
   basePath?: string;
   /** Default "openid profile email offline_access" (offline_access gives a refresh token). */
   scope?: string;
@@ -46,7 +46,7 @@ export interface NineConfig {
   sessionMaxAge?: number;
   /** Seconds before expiry when the access token is refreshed. Default 60. */
   refreshLeeway?: number;
-  /** Where users land after sign-in when no `returnTo` was given. Default "/". */
+  /** Where users land after sign-in when no `return_to` was given. Default "/". */
   afterSignInPath?: string;
   /** Where users land after sign-out (must be an allowed logout URL of the application). Default "/". */
   afterSignOutPath?: string;
@@ -76,7 +76,7 @@ export interface AccessTokenOptions {
 export type RouteHandler = (request: Request) => Promise<Response>;
 
 export interface Nine {
-  /** `export const { GET, POST } = nine.handlers;` in `app/auth/[...nine]/route.ts`. */
+  /** `export const { GET, POST } = nine.handlers;` in `app/nine/[...nine]/route.ts`. */
   handlers: { GET: RouteHandler; POST: RouteHandler };
   /**
    * The signed-in user, or null. Works in Server Components, Route Handlers, Server Actions
@@ -158,6 +158,11 @@ function safePath(value: string | null | undefined, origin: string): string | un
   }
 }
 
+/** The `return_to` query parameter (`returnTo`, from 0.1, is still read). */
+function returnToParam(params: URLSearchParams): string | null {
+  return params.get("return_to") ?? params.get("returnTo");
+}
+
 /** Link prefetches must not sign anyone in or out. */
 function isPrefetch(request: Request): boolean {
   const h = request.headers;
@@ -196,7 +201,7 @@ export function createNine(config: NineConfig = {}): Nine {
     if (!clientId) throw new NineError("invalid_options", "clientId is missing: set NINE_CLIENT_ID or pass `clientId` to createNine()");
     if (!secrets.length) throw new NineError("invalid_options", "secret is missing: set NINE_SECRET (32+ characters, e.g. `openssl rand -base64 32`)");
     if (secrets.some((s) => s.length < 32)) throw new NineError("invalid_options", "secret must be at least 32 characters (e.g. `openssl rand -base64 32`)");
-    const basePath = `/${(config.basePath ?? "/auth").replace(/^\/+|\/+$/g, "")}`;
+    const basePath = `/${(config.basePath ?? "/nine").replace(/^\/+|\/+$/g, "")}`;
     const baseUrl = (config.baseUrl ?? env("NINE_BASE_URL"))?.replace(/\/+$/, "");
     if (baseUrl && !/^https?:\/\//.test(baseUrl)) throw new NineError("invalid_options", "baseUrl must be an absolute URL, e.g. https://app.example.com");
     const clientSecret = config.clientSecret ?? env("NINE_CLIENT_SECRET");
@@ -206,7 +211,7 @@ export function createNine(config: NineConfig = {}): Nine {
       ...(clientSecret ? { clientSecret } : {}),
       secrets,
       ...(baseUrl ? { baseUrl } : {}),
-      basePath: basePath === "/" ? "/auth" : basePath,
+      basePath: basePath === "/" ? "/nine" : basePath,
       cookieName: config.cookieName ?? "nine_session",
       maxAge: config.sessionMaxAge ?? 30 * 24 * 3600,
       leeway: (config.refreshLeeway ?? 60) * 1000,
@@ -251,7 +256,7 @@ export function createNine(config: NineConfig = {}): Nine {
   const secure = (base: string) => base.startsWith("https:");
   const txCookie = (state: string) => `${settings().cookieName}_tx_${state}`;
 
-  /** Which of our routes a path is: "/auth/login" (or "/prefix/auth/login") → { action, path: "/auth" }. */
+  /** Which of our routes a path is: "/nine/login" (or "/prefix/nine/login") → { action, path: "/nine" }. */
   function route(pathname: string): { action: string; path: string } | null {
     const { basePath } = settings();
     const clean = pathname.replace(/\/+$/, "");
@@ -352,7 +357,7 @@ export function createNine(config: NineConfig = {}): Nine {
     const q = url.searchParams;
     const prompt = q.get("prompt");
     const options: WebLoginOptions = {
-      returnTo: safePath(q.get("returnTo"), origin) ?? s.afterSignInPath,
+      returnTo: safePath(returnToParam(q), origin) ?? s.afterSignInPath,
       ...(screen || q.get("screen") === "signup" ? { screen: "signup" as const } : {}),
       ...(prompt && PROMPTS.has(prompt) ? { prompt: prompt as WebLoginOptions["prompt"] } : {}),
       ...(q.get("login_hint") ? { loginHint: q.get("login_hint")! } : {}),
@@ -409,7 +414,7 @@ export function createNine(config: NineConfig = {}): Nine {
     const session = await readSession(cookies);
     appendSessionCookies(headers, await sessionCookies(null, cookies.keys()), base);
     if (session?.refreshToken) await anyClient().revoke(session.refreshToken).catch(() => undefined);
-    const target = new URL(safePath(params.get("returnTo"), new URL(base).origin) ?? s.afterSignOutPath, base).toString();
+    const target = new URL(safePath(returnToParam(params), new URL(base).origin) ?? s.afterSignOutPath, base).toString();
     const status = request.method === "POST" ? 303 : 302;
     if (params.get("local") === "1" || params.get("local") === "true") return redirect(target, headers, status);
     return redirect(await anyClient().logoutUrl({ postLogoutRedirectUri: target }), headers, status);
@@ -552,7 +557,7 @@ export function createNine(config: NineConfig = {}): Nine {
           return finish(new Response(JSON.stringify({ error: "unauthorized", error_description: "sign in first" }), { status: 401, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }));
         }
         const login = new URL(`${base}${s.basePath}/login`);
-        login.searchParams.set("returnTo", url.pathname + url.search);
+        login.searchParams.set("return_to", url.pathname + url.search);
         return finish(NextResponse.redirect(login));
       }
 

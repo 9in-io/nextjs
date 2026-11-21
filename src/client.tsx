@@ -30,12 +30,12 @@ export interface SessionProviderProps {
    * no loading state). Leave it out and the provider asks `{basePath}/session`.
    */
   session?: Session | null;
-  /** Where the routes are mounted. Default "/auth". */
+  /** Where the routes are mounted. Default "/nine". */
   basePath?: string;
 }
 
 /** Makes the session available to Client Components (useSession, SignedIn, SignedOut). */
-export function SessionProvider({ children, session, basePath = "/auth" }: SessionProviderProps) {
+export function SessionProvider({ children, session, basePath = "/nine" }: SessionProviderProps) {
   const [state, setState] = useState<Value["state"]>(() => (session === undefined ? { user: null, status: "loading" } : fromSession(session)));
 
   const update = useCallback(async () => {
@@ -82,7 +82,7 @@ export interface SignInOptions {
   loginHint?: string;
   /** Language of the hosted pages, e.g. "de". */
   locale?: string;
-  /** Default "/auth". */
+  /** Default "/nine". */
   basePath?: string;
 }
 
@@ -97,15 +97,15 @@ const here = () => window.location.pathname + window.location.search;
 
 /** Goes to the 9in sign-in page. */
 export function signIn(options: SignInOptions = {}): void {
-  go(`${options.basePath ?? "/auth"}/login`, { returnTo: options.returnTo ?? here(), prompt: options.prompt, login_hint: options.loginHint, locale: options.locale });
+  go(`${options.basePath ?? "/nine"}/login`, { return_to: options.returnTo ?? here(), prompt: options.prompt, login_hint: options.loginHint, locale: options.locale });
 }
 
 /** Goes to the 9in registration page. */
 export function signUp(options: Omit<SignInOptions, "prompt"> = {}): void {
-  go(`${options.basePath ?? "/auth"}/signup`, { returnTo: options.returnTo ?? here(), login_hint: options.loginHint, locale: options.locale });
+  go(`${options.basePath ?? "/nine"}/signup`, { return_to: options.returnTo ?? here(), login_hint: options.loginHint, locale: options.locale });
 }
 
 /** Signs out here and at 9in (`local: true` only here). */
 export function signOut(options: { returnTo?: string; local?: boolean; basePath?: string } = {}): void {
-  go(`${options.basePath ?? "/auth"}/logout`, { returnTo: options.returnTo, local: options.local ? "1" : undefined });
+  go(`${options.basePath ?? "/nine"}/logout`, { return_to: options.returnTo, local: options.local ? "1" : undefined });
 }

@@ -8,8 +8,8 @@ Official Next.js SDK for [9in](https://9in.io), built on [`@9in-io/sdk`](https:/
 `@9in-io/nextjs` signs users in to your Next.js app (App Router) on the server, with three small
 files and a few environment variables:
 
-- **Sign-in routes**: `/auth/login`, `/auth/signup`, `/auth/callback`, `/auth/logout` and
-  `/auth/session`. The authorization code flow with PKCE runs on your server, with your client
+- **Sign-in routes**: `/nine/login`, `/nine/signup`, `/nine/callback`, `/nine/logout` and
+  `/nine/session`. The authorization code flow with PKCE runs on your server, with your client
   secret when the application has one.
 - **An encrypted session cookie** (AES-256-GCM) with no tokens exposed to the browser.
 - **`auth()` and `getAccessToken()`** in Server Components, Route Handlers and Server Actions.
@@ -31,7 +31,7 @@ guide is [Server-rendered apps](https://9in.io/docs/server-apps/) in the 9in doc
 
 Create a **Regular Web App** application in the 9in console and add:
 
-- Allowed callback URL: `https://your-app.com/auth/callback` (and `http://localhost:3000/auth/callback`)
+- Allowed callback URL: `https://your-app.com/nine/callback` (and `http://localhost:3000/nine/callback`)
 - Allowed logout URL: `https://your-app.com/` (and `http://localhost:3000/`)
 
 Then set these in `.env.local`:
@@ -57,7 +57,7 @@ export const nine = createNine();
 ```
 
 ```ts
-// app/auth/[...nine]/route.ts
+// app/nine/[...nine]/route.ts
 import { nine } from "@/auth";
 
 export const { GET, POST } = nine.handlers;
@@ -76,13 +76,13 @@ That gives you these routes:
 
 | Route | What it does |
 | --- | --- |
-| `/auth/login?returnTo=/dashboard` | Goes to the 9in sign-in page. Also takes `prompt`, `login_hint` and `locale`. |
-| `/auth/signup` | Goes to the registration page. |
-| `/auth/callback` | Finishes the sign-in and sets the session cookie. |
-| `/auth/logout?returnTo=/` | Signs out here and at 9in. Add `local=1` to sign out only here. |
-| `/auth/session` | `{ "user": { … } }` or `{ "user": null }`, for client code. |
+| `/nine/login?return_to=/dashboard` | Goes to the 9in sign-in page. Also takes `prompt`, `login_hint` and `locale`. |
+| `/nine/signup` | Goes to the registration page. |
+| `/nine/callback` | Finishes the sign-in and sets the session cookie. |
+| `/nine/logout?return_to=/` | Signs out here and at 9in. Add `local=1` to sign out only here. |
+| `/nine/session` | `{ "user": { … } }` or `{ "user": null }`, for client code. |
 
-Link to them with `<a href="/auth/login">`, not `<Link>`: they redirect to another site, and
+Link to them with `<a href="/nine/login">`, not `<Link>`: they redirect to another site, and
 prefetching them is pointless (prefetch requests are ignored).
 
 ## 3. Use the session
@@ -146,7 +146,7 @@ export function UserMenu() {
 ```
 
 `signIn()` comes back to the current page; `signUp()` opens the registration page.
-Without a `session` prop, `<SessionProvider>` asks `/auth/session` once.
+Without a `session` prop, `<SessionProvider>` asks `/nine/session` once.
 
 ## Token refresh
 
@@ -173,7 +173,7 @@ createNine({
   issuer, clientId, clientSecret,
   secret,               // string, or [new, old] to rotate
   baseUrl,              // include Next's basePath if you use one
-  basePath: "/auth",    // where the routes are mounted
+  basePath: "/nine",    // where the routes are mounted
   scope: "openid profile email offline_access",
   audience: "https://api.example.com", // access tokens for your API
   cookieName: "nine_session",
@@ -184,6 +184,12 @@ createNine({
   onError: (error, request) => Response.redirect(new URL(`/sign-in-failed?error=${error.code}`, request.url)),
 });
 ```
+
+Upgrading from 0.1? The routes moved from `/auth` to `/nine`, the same paths as the other 9in
+SDKs. Move `app/auth/[...nine]/route.ts` to `app/nine/[...nine]/route.ts` and add the new callback
+URL to the application, or pass `basePath: "/auth"` (and `basePath="/auth"` to `<SessionProvider>`
+and the client helpers) to keep the old URLs. `returnTo` is still read; the parameter is now
+`return_to`.
 
 `middleware({ protect })` takes path prefixes (`"/dashboard"` covers everything under it, `"/"`
 covers every page), RegExps or a function of the request. Signed-out page visits go to the
@@ -196,7 +202,7 @@ sign-in page and come back; other requests (API calls) get a 401.
   Large sessions are split over several cookies.
 - Every sign-in uses PKCE, `state` and `nonce`. The ID token's signature, issuer, audience and
   expiry are checked, and so is the issuer in the callback (RFC 9207).
-- `returnTo` only takes paths on your own site.
+- `return_to` only takes paths on your own site.
 - Sign-out revokes the refresh token at 9in.
 
 Every option and member is in the [SDK reference](https://9in.io/docs/reference/sdk/#9in-io-nextjs).
