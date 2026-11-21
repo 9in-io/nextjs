@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Official 9in SDK for Next.js (App Router): sign-in routes, encrypted session cookies, auth() in Server Components, token refresh and route protection in middleware. Runs on Node and Edge.",
   "license": "MIT",
+  "author": "9in <support@9in.io>",
   "homepage": "https://9in.io/docs/server-apps/",
   "repository": {
     "type": "git",

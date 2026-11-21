@@ -1,13 +1,31 @@
-# @9in-io/nextjs
+9in Next.js SDK
+===============
 
-Sign-in with [9in](https://9in.io) for Next.js (App Router, Next 14.2+): the sign-in routes,
-an encrypted session cookie, `auth()` in Server Components, token refresh and route protection
-in middleware. It runs on the Node and Edge runtimes and has no dependencies besides
-[`@9in-io/sdk`](https://www.npmjs.com/package/@9in-io/sdk).
+<img src="docs/img/logo.png" width="160" alt="9in"/>
 
-```sh
+Official Next.js SDK for [9in](https://9in.io), built on [`@9in-io/sdk`](https://github.com/9in-io/sdk).
+
+`@9in-io/nextjs` signs users in to your Next.js app (App Router) on the server, with three small
+files and a few environment variables:
+
+- **Sign-in routes**: `/auth/login`, `/auth/signup`, `/auth/callback`, `/auth/logout` and
+  `/auth/session`. The authorization code flow with PKCE runs on your server, with your client
+  secret when the application has one.
+- **An encrypted session cookie** (AES-256-GCM) with no tokens exposed to the browser.
+- **`auth()` and `getAccessToken()`** in Server Components, Route Handlers and Server Actions.
+- **Middleware** that refreshes tokens before pages render and protects the paths you choose.
+- **Client Components**: `<SessionProvider>`, `useSession()`, `<SignedIn>`, `<SignedOut>`,
+  `signIn()` and `signOut()` from `@9in-io/nextjs/client`.
+
+Requires Next.js 14.2 or later and React 18 or later (peer dependencies). It runs on the Node and
+Edge runtimes and has no dependencies besides `@9in-io/sdk`.
+
+```bash
 npm install @9in-io/nextjs
 ```
+
+A single-page app with no server? Use [`@9in-io/react`](https://github.com/9in-io/react). The full
+guide is [Server-rendered apps](https://9in.io/docs/server-apps/) in the 9in docs.
 
 ## 1. Configure
 
@@ -181,4 +199,20 @@ sign-in page and come back; other requests (API calls) get a 401.
 - `returnTo` only takes paths on your own site.
 - Sign-out revokes the refresh token at 9in.
 
-MIT licensed.
+Every option and member is in the [SDK reference](https://9in.io/docs/reference/sdk/#9in-io-nextjs).
+
+## Development
+
+```bash
+npm install
+npm test            # vitest (Node 22.12+)
+npm run typecheck
+npm run build       # dist/
+```
+
+This package is developed in 9in's monorepo and copied here at each release (one commit per
+version). Report bugs in [issues](https://github.com/9in-io/nextjs/issues).
+
+## License
+
+The MIT License (MIT). See [LICENSE](LICENSE). 9in and SSOfy are by [Cubelet Ltd](https://cubelet.co.uk).
