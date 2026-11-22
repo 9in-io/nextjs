@@ -52,8 +52,6 @@ export interface NineConfig {
   afterSignOutPath?: string;
   /** Your response for a failed sign-in (`access_denied` when the user cancels, say). Default: a plain-text 400 page. */
   onError?: (error: NineError, request: Request) => Response | Promise<Response>;
-  /** Only for tenants that sign with a shared (HMAC) key. */
-  idTokenSecret?: string;
   fetch?: typeof fetch;
   /** Allows http:// issuers other than localhost (never in production). */
   allowInsecureIssuer?: boolean;
@@ -241,7 +239,6 @@ export function createNine(config: NineConfig = {}): Nine {
         scope: config.scope ?? DEFAULT_SCOPE,
         ...(s.clientSecret ? { clientSecret: s.clientSecret } : {}),
         ...(audience ? { audience } : {}),
-        ...(config.idTokenSecret ? { idTokenSecret: config.idTokenSecret } : {}),
         ...(config.fetch ? { fetch: config.fetch } : {}),
         ...(config.allowInsecureIssuer ? { allowInsecureIssuer: true } : {}),
       });
@@ -331,7 +328,6 @@ export function createNine(config: NineConfig = {}): Nine {
         const claims = await verifyIdToken(tokens.idToken, {
           issuer: s.issuer,
           clientId: s.clientId,
-          ...(config.idTokenSecret ? { secret: config.idTokenSecret } : {}),
           ...(config.fetch ? { fetch: config.fetch } : {}),
           ...(config.allowInsecureIssuer ? { allowInsecureIssuer: true } : {}),
         });

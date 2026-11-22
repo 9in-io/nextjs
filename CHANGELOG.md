@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+Needs `@9in-io/sdk` 0.4.0.
+
+- The `idTokenSecret` option is removed. 9in signs ID tokens with the tenant's asymmetric
+  default key (never HMAC), so it never verified a real ID token; drop it from `createNine()`.
+  A failed ID token check on the callback reaches `onError` as `invalid_id_token` (from
+  `@9in-io/sdk` 0.4.0).
+
 ## 0.2.0
 
 Breaking: the routes moved from `/auth` to `/nine`, the paths every 9in SDK uses
