@@ -221,4 +221,4 @@ version). Report bugs in [issues](https://github.com/9in-io/nextjs/issues).
 
 ## License
 
-The MIT License (MIT). See [LICENSE](LICENSE). 9in and SSOfy are by [Cubelet Ltd](https://cubelet.co.uk).
+The MIT License (MIT). See [LICENSE](LICENSE). 9in is by [Cubelet Ltd](https://cubelet.co.uk).
